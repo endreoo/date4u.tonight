@@ -12,21 +12,23 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-gray-50">
           <Header />
-          <Routes>
-            <Route path="/" element={<Hero />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/profiles"
-              element={
-                <ProtectedRoute>
-                  <Profiles />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
+          <div className="pt-16">
+            <Routes>
+              <Route path="/" element={<Hero />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/login" element={<Login />} />
+              <Route
+                path="/profiles"
+                element={
+                  <ProtectedRoute>
+                    <Profiles />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </div>
         </div>
       </Router>
     </AuthProvider>

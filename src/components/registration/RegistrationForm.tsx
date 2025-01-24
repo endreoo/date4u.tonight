@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MediaUpload } from './MediaUpload';
 import { IDVerification } from './IDVerification';
+import { AuthService } from '../../services/AuthService';
+import { UserRole } from '../../types';
+import { PhotoUploadService } from '../../services/PhotoUploadService';
+import { AIProfileGenerator } from './AIProfileGenerator';
 
 export function RegistrationForm() {
+  const navigate = useNavigate();
   const [role, setRole] = useState<'man' | 'woman'>('man');
   const [files, setFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState({
@@ -10,12 +16,48 @@ export function RegistrationForm() {
     email: '',
     phone: '',
     age: '',
-    bio: ''
+    bio: '',
+    password: '',
+    confirmPassword: ''
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement form submission
+    setError('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (files.length === 0) {
+      setError('Please upload at least one photo');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Upload photos and get URLs
+      const photoUrls = await PhotoUploadService.uploadPhotos(files);
+
+      await AuthService.register({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        age: parseInt(formData.age),
+        role: role as UserRole,
+        bio: formData.bio,
+        photos: photoUrls
+      });
+
+      navigate('/login');
+    } catch (err) {
+      setError('Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -30,39 +72,33 @@ export function RegistrationForm() {
       <div className="bg-white rounded-xl shadow-lg p-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-8">Create Your Account</h2>
         
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Role Selection */}
           <div className="flex justify-center space-x-4">
             <button
               type="button"
               onClick={() => setRole('man')}
-              className={`px-6 py-2 rounded-lg ${
-                role === 'man'
-                  ? 'bg-red-500 text-white'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
+              className={`px-6 py-2 rounded-lg ${role === 'man' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600'}`}
             >
               I am a Man
             </button>
             <button
               type="button"
               onClick={() => setRole('woman')}
-              className={`px-6 py-2 rounded-lg ${
-                role === 'woman'
-                  ? 'bg-red-500 text-white'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
+              className={`px-6 py-2 rounded-lg ${role === 'woman' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600'}`}
             >
               I am a Woman
             </button>
           </div>
 
-          {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
               <input
                 type="text"
                 name="name"
@@ -74,9 +110,7 @@ export function RegistrationForm() {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Age
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
               <input
                 type="number"
                 name="age"
@@ -90,9 +124,7 @@ export function RegistrationForm() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <input
                 type="email"
                 name="email"
@@ -104,9 +136,7 @@ export function RegistrationForm() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
               <input
                 type="tel"
                 name="phone"
@@ -116,12 +146,34 @@ export function RegistrationForm() {
                 required
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500"
+                required
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Bio
-            </label>
+          <div className="space-y-4">
+            <label className="block text-sm font-medium text-gray-700">Bio</label>
             <textarea
               name="bio"
               value={formData.bio}
@@ -130,30 +182,32 @@ export function RegistrationForm() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500"
               required
             />
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Need help? Generate your bio with AI</h3>
+              <AIProfileGenerator
+                gender={role}
+                onProfileGenerated={(profile) => {
+                  if (profile.bio) {
+                    setFormData(prev => ({
+                      ...prev,
+                      bio: profile.bio
+                    }));
+                  }
+                }}
+              />
+            </div>
           </div>
 
-          {/* Media Upload */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Upload Your Photos {role === 'woman' && '& Videos'}
-            </h3>
-            <MediaUpload
-              files={files}
-              onFilesChange={setFiles}
-              minPhotos={role === 'woman' ? 5 : 1}
-              acceptVideo={role === 'woman'}
-            />
-          </div>
-
-          {/* ID Verification */}
-          <IDVerification />
+          <MediaUpload files={files} setFiles={setFiles} />
+          <IDVerification role={role} />
 
           <div className="flex justify-end">
             <button
               type="submit"
-              className="px-8 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              disabled={loading}
+              className={`px-6 py-2 rounded-lg font-medium ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'} text-white`}
             >
-              Create Account
+              {loading ? 'Creating Account...' : 'Create Account'}
             </button>
           </div>
         </form>
